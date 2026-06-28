@@ -4,6 +4,7 @@ from random import randrange
 from typing import Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import time
 
 #defining an instance of the FastAPI class, which will be our main application
 app = FastAPI()
@@ -14,14 +15,17 @@ class Post(BaseModel):
     content: str
     rating: Optional[int] = None
 
-
-try:
-    conn = psycopg2.connect(host='localhost', database='fastapi', user='postgres', password='Laxmi@2811', cursor_factory=RealDictCursor)
-    cursor = conn.cursor() #to execute the sql statements we will use this cursor
-    print("Database connection was successful.")
-except Exception as error:
-    print("Connecting to database failed")
-    print("Error ",error)
+while True:
+    try:
+        conn = psycopg2.connect(host='localhost', database='fastapi', user='postgres', password='Laxmi@2811', cursor_factory=RealDictCursor)
+    #RealDictCursor will give you the column name as well as the value when querying data.
+        cursor = conn.cursor() #to execute the sql statements we will use this cursor
+        print("Database connection was successful.")
+        break
+    except Exception as error:
+        print("Connecting to database failed")
+        print("Error ",error)
+        time.sleep(3)
 
 
 #this is a list that we have defined to store our posts data, it contains two dictionaries representing two posts with their title, content and id
