@@ -1,13 +1,28 @@
-from fastapi import FastAPI, Response, status, HTTPException
+from fastapi import FastAPI, Response, status, HTTPException, Depends
 from pydantic import BaseModel
 from random import randrange
 from typing import Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
+from . import model
+from .database import engine, get_db
+from sqlalchemy.orm import Session
+'''this is a copy that i have created in order to understand ORM.
+'''
+#for orm
+model.Base.metadata.create_all(bind=engine)
 
 #defining an instance of the FastAPI class, which will be our main application
 app = FastAPI()
+
+'''
+A session object is kind of what's responsible for talking with our database and so we created this function
+where we actually get a connection/session to our database. And so, everytime we get a session we are going to 
+be able to send a SQL. We can keep calling this function everytime we get a request to any of our API endpoints
+
+'''
+
 
 #via this class we can define the structure of the data that we want to receive in the request body
 class Post(BaseModel):
@@ -33,36 +48,12 @@ while True:
 my_posts = [{"title": "post 1", "content": "content of post 1", "id": 1}, {"title": "post 2", "content": "content of post 2", "id": 2}]
 
 
-#this is a decorator that tells FastAPI that this function will handle GET requests to the root URL ("/")
-@app.get("/")
-def root():
-    return {"message": "Hello World"}
+@app.get("/sqlalchemy")
+def test_post(db:Session = Depends(get_db)):
+    posts = db.query(model.Post).all() #this will fetch all the data in table
+    return {"data" : posts}
+#if you look here we are not using any sql query, we are just tapping into the database (db) object and call query then what specific model
 
-
-#this is a decorator that tells FastAPI that this function will handle GET requests to the "/posts" URL
-@app.get("/posts")
-def get_posts():
-    try:
-    #now that we have made a cursor we can use it to execute sql queries
-        cursor.execute(''' SELECT * FROM posts ''')
-        posts = cursor.fetchall() #now cursor.execute will just run your query this will fetch the data!
-        # print(posts[1]['title'])
-        return {"data": posts}
-    except Exception as e:
-        print("GET /posts failed:", repr(e))
-        raise HTTPException(status_code=500, detail="Database query failed")
-   
-
-#this below create_posts is for normal crud after this is for database crud
-
-# #this is a decorator that tells FastAPI that this function will handle POST requests to the "/posts" URL
-# @app.post("/posts")
-# def create_posts(new_post: Post):
-#     #.dict() method is used to convert the Pydantic model instance into a dictionary
-#     post_dict = new_post.dict()
-#     post_dict['id'] = randrange(0, 1000000) #this line generates a random integer between 0 and 1,000,000 and assigns it to the 'id' key of the post_dict dictionary
-#     my_posts.append(post_dict) #this line adds the post_dict to the my_posts list
-#     return {"data": post_dict} 
 
 #create_posts for crud with database
 @app.post("/posts")

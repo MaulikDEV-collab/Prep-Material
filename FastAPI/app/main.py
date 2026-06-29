@@ -6,6 +6,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
 
+
 #defining an instance of the FastAPI class, which will be our main application
 app = FastAPI()
 
