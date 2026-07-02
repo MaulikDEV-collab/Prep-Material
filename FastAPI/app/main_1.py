@@ -1,17 +1,17 @@
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from pydantic import BaseModel
 from random import randrange
-from typing import Optional
+from typing import Optional, List
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
-from . import model
+from . import model, schemas
 from .database import engine, get_db
 from sqlalchemy.orm import Session
 '''this is a copy that i have created in order to understand ORM.
 '''
 #for orm
-model.Base.metadata.create_all(bind=engine)
+model.Base.metadata.create_all(bind=engine) #this will create a table if not able to find one
 
 #defining an instance of the FastAPI class, which will be our main application
 app = FastAPI()
@@ -24,23 +24,13 @@ be able to send a SQL. We can keep calling this function everytime we get a requ
 '''
 
 
-#via this class we can define the structure of the data that we want to receive in the request body
-class Post(BaseModel):
-    title: str
-    content: str
-    published: Optional[bool] = True
 
-
-@app.get("/sqlalchemy")
-def test_post(db:Session = Depends(get_db)):
-    posts = db.query(model.Post).all() #this will fetch all the data in table
-    return {"data" : posts}
 #if you look here we are not using any sql query, we are just tapping into the database (db) object and call query then what specific model
 
-@app.get("/posts")
+@app.get("/posts", response_model=List[schemas.Post])
 def get_post(db:Session = Depends(get_db)):
     posts = db.query(model.Post).all()
-    return {"data" : posts}
+    return posts
 
 
 '''
@@ -53,24 +43,24 @@ def create_post(post: Post, db:Session = Depends(get_db)):
     return {"data" : new_post}
     '''
 #there is much more efficient way of doing this, if we had more than 50 columns we had to write post.title, post.blabla 50 times, what we can do instead is convert the post object into a dictionary and then unpack the whole dictionary into model.Post()
-@app.post("/posts")
-def create_post(post: Post, db:Session = Depends(get_db)):
+@app.post("/posts", response_model=schemas.Post)#response_model is the schema to handle how we send response to user
+def create_post(post: schemas.PostCreate, db:Session = Depends(get_db)):
     new_post = model.Post(**post.dict())
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
-    return {"data" : new_post}
-
+    return new_post
+#here PostCreate is a pydantic model for schema whereas Post is an SQLAlchemy model defined in model.py
 
 
 
 @app.get("/posts/{id}")
-def get_post(id : int, db:Session = Depends(get_db)):
+def get_post(id : int, db:Session = Depends(get_db), response_model=schemas.Post):
     # cursor.execute("""SELECT * FROM posts WHERE id = %s""", (str(id)))#we are converting id into string since in the query its a string we are passing.
     # test_post = cursor.fetchone()
     # conn.commit()
     test_post = db.query(model.Post).filter(model.Post.id == id).first()#this will fetch the first value found
-    return {"data": test_post}
+    return test_post
 
 
 
@@ -90,8 +80,8 @@ def delete_post(id: int, db:Session = Depends(get_db)):
 
 
 
-@app.put("/posts/{id}")
-def update_post(id : int, updated_post: Post, db:Session = Depends(get_db)):
+@app.put("/posts/{id}", response_model=schemas.Post)
+def update_post(id : int, updated_post: schemas.PostCreate, db:Session = Depends(get_db)):
     # cursor.execute(""" UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""", (post.title, post.content, post.published,str(id)))       
     # updated_post = cursor.fetchone()
     # conn.commit()
@@ -103,4 +93,6 @@ def update_post(id : int, updated_post: Post, db:Session = Depends(get_db)):
     
     updated_post_query.update(updated_post.dict(), synchronize_session=False)
     db.commit()
-    return {"Post Updated" : updated_post_query.first()}    
+    return updated_post_query.first()  
+
+
